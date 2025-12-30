@@ -13,9 +13,12 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Input / output videos and subtitles
-input/
-output/
+# Ignore everything in input/output except .gitkeep
+input/*
+!input/.gitkeep
+
+output/*
+!output/.gitkeep
 
 # Optional: logs or temp files
 *.log
