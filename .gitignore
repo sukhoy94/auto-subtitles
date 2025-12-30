@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Input / output videos and subtitles
+input/
+output/
+
+# Optional: logs or temp files
+*.log
+*.tmp
+
+# IDE / editor configs (VSCode, PyCharm, etc.)
+.vscode/
+.idea/
