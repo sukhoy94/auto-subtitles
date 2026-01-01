@@ -3,9 +3,56 @@ from datetime import timedelta
 import os
 import sys
 import re
+import argparse
 
 INPUT_VIDEO = "input/video2.MOV"
 OUTPUT_SRT = "output/subtitles.srt"
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Generate SRT subtitles using OpenAI Whisper"
+    )
+
+    parser.add_argument(
+        "--input",
+        default="input/video2.MOV",
+        help="Path to input video file"
+    )
+
+    parser.add_argument(
+        "--output",
+        default="output/subtitles.srt",
+        help="Path to output SRT file"
+    )
+
+    parser.add_argument(
+        "--model",
+        default="medium",
+        choices=["tiny", "base", "small", "medium", "large"],
+        help="Whisper model size"
+    )
+
+    parser.add_argument(
+        "--language",
+        default="pl",
+        help="Spoken language code (e.g. pl, en, de)"
+    )
+
+    parser.add_argument(
+        "--pause",
+        type=float,
+        default=0.4,
+        help="Pause threshold (seconds) to split subtitles"
+    )
+
+    parser.add_argument(
+        "--max-len",
+        type=int,
+        default=40,
+        help="Maximum subtitle text length"
+    )
+
+    return parser.parse_args()
 
 def split_sentences(text: str, max_len=45):
     parts = re.split(r'(,)', text)
@@ -82,32 +129,38 @@ def build_subtitles_from_words(words, pause=0.4, max_len=40):
 
 
 def main():
-    validate_input(INPUT_VIDEO)
+    args = parse_args()
 
-    model = whisper.load_model("medium")
+    validate_input(args.input)
+
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+
+    model = whisper.load_model(args.model)
     result = model.transcribe(
-        INPUT_VIDEO,
-        language="pl",
+        args.input,
+        language=args.language,
         word_timestamps=True
     )
 
-    os.makedirs("output", exist_ok=True)
-
-
-    with open(OUTPUT_SRT, "w", encoding="utf-8") as f:
+    with open(args.output, "w", encoding="utf-8") as f:
         index = 1
 
         for segment in result["segments"]:
             if "words" not in segment or not segment["words"]:
                 continue
 
-            subtitles = build_subtitles_from_words(segment["words"])
+            subtitles = build_subtitles_from_words(
+                segment["words"],
+                pause=args.pause,
+                max_len=args.max_len
+            )
 
             for start, end, text in subtitles:
                 f.write(f"{index}\n")
                 f.write(f"{format_time(start)} --> {format_time(end)}\n")
                 f.write(f"{text.strip()}\n\n")
                 index += 1
+
 
 
 if __name__ == "__main__":
