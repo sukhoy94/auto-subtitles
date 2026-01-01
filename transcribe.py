@@ -5,54 +5,46 @@ import sys
 import re
 import argparse
 
-INPUT_VIDEO = "input/video2.MOV"
-OUTPUT_SRT = "output/subtitles.srt"
+DEFAULTS = {
+    "input": "input/video2.MOV",
+    "output": "output/subtitles.srt",
+    "model": "medium",
+    "language": "en",  # Changed default to English
+    "pause": 0.4,
+    "max_len": 40,
+}
+
+def ask(prompt: str, default, cast=str):
+    value = input(f"{prompt} [{default}]: ").strip()
+    if value == "":
+        return default
+    try:
+        return cast(value)
+    except ValueError:
+        print("Invalid value, using default.")
+        return default
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Generate SRT subtitles using OpenAI Whisper"
     )
 
-    parser.add_argument(
-        "--input",
-        default="input/video2.MOV",
-        help="Path to input video file"
-    )
+    parser.add_argument("--input", help="Path to input video file")
+    parser.add_argument("--output", help="Path to output SRT file")
+    parser.add_argument("--model", choices=["tiny", "base", "small", "medium", "large"])
+    parser.add_argument("--language", help="Language code (e.g., en, pl, es)")
+    parser.add_argument("--pause", type=float, help="Max pause between words in seconds")
+    parser.add_argument("--max-len", type=int, help="Max characters per subtitle line")
 
     parser.add_argument(
-        "--output",
-        default="output/subtitles.srt",
-        help="Path to output SRT file"
-    )
-
-    parser.add_argument(
-        "--model",
-        default="medium",
-        choices=["tiny", "base", "small", "medium", "large"],
-        help="Whisper model size"
-    )
-
-    parser.add_argument(
-        "--language",
-        default="pl",
-        help="Spoken language code (e.g. pl, en, de)"
-    )
-
-    parser.add_argument(
-        "--pause",
-        type=float,
-        default=0.4,
-        help="Pause threshold (seconds) to split subtitles"
-    )
-
-    parser.add_argument(
-        "--max-len",
-        type=int,
-        default=40,
-        help="Maximum subtitle text length"
+        "--interactive",
+        action="store_true",
+        help="Ask for missing parameters interactively"
     )
 
     return parser.parse_args()
+
 
 def split_sentences(text: str, max_len=45):
     parts = re.split(r'(,)', text)
@@ -92,13 +84,12 @@ def format_time(seconds: float) -> str:
 def validate_input(path: str) -> None:
     if not os.path.exists(path):
         print(f"Input file not found: {path}")
-        print("👉 Make sure the video file exists in the 'input/' directory")
+        print("👉 Make sure the video file exists in the specified directory.")
         sys.exit(1)
 
     if not os.path.isfile(path):
         print(f"Input path is not a file: {path}")
         sys.exit(1)
-
 
 
 def build_subtitles_from_words(words, pause=0.4, max_len=40):
@@ -131,11 +122,48 @@ def build_subtitles_from_words(words, pause=0.4, max_len=40):
 def main():
     args = parse_args()
 
+    if args.interactive:
+        args.input = args.input or ask(
+            "Path to video file", DEFAULTS["input"]
+        )
+        args.output = args.output or ask(
+            "Path to output SRT file", DEFAULTS["output"]
+        )
+        args.model = args.model or ask(
+            "Whisper model (tiny/base/small/medium/large)",
+            DEFAULTS["model"]
+        )
+        args.language = args.language or ask(
+            "Language code",
+            DEFAULTS["language"]
+        )
+        args.pause = args.pause or ask(
+            "Pause between words (seconds)",
+            DEFAULTS["pause"],
+            float
+        )
+        args.max_len = args.max_len or ask(
+            "Maximum subtitle length",
+            DEFAULTS["max_len"],
+            int
+        )
+    else:
+        # Fallback to defaults
+        for key, value in DEFAULTS.items():
+            if getattr(args, key) is None:
+                setattr(args, key, value)
+
     validate_input(args.input)
+    
+    # Ensure output directory exists
+    output_dir = os.path.dirname(args.output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
 
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
-
+    print(f"Loading model: {args.model}...")
     model = whisper.load_model(args.model)
+    
+    print(f"Transcribing file: {args.input}...")
     result = model.transcribe(
         args.input,
         language=args.language,
@@ -160,8 +188,10 @@ def main():
                 f.write(f"{format_time(start)} --> {format_time(end)}\n")
                 f.write(f"{text.strip()}\n\n")
                 index += 1
-
+    
+    print(f"Done! Subtitles saved to: {args.output}")
 
 
 if __name__ == "__main__":
     main()
+    
