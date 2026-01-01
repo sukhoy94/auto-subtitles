@@ -55,4 +55,10 @@ pip install openai-whisper ffmpeg-python
 python transcribe.py
 ```
 
+or in interactive mode
+
+```
+python transcribe.py --interactive
+```
+
 3. Subtitles will be generated in output/subtitles.srt.
